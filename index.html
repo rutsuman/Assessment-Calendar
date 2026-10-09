@@ -24,8 +24,8 @@
             </div>
             <div class="legend">
                 <span class="avail">available</span>
-                <span class="partial">1 test</span>
-                <span class="full">2 tests (full)</span>
+                <span class="full"> tests (full)</span>
+                <span class="ls-dot"> learning support</span>
             </div>
         </div>
 
@@ -37,8 +37,15 @@
             </div>
         </div>
 
-        <div class="calendar-grid" id="calendarGrid">
-            <!-- Weekday headers and days injected by JS -->
+        <div class="calendar-container">
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- Weekday headers and days injected by JS -->
+            </div>
+            <aside class="hover-panel" id="hoverPanel">
+                <div class="hover-panel-placeholder">
+                    Hover over a day to see test details
+                </div>
+            </aside>
         </div>
     </div>
 
@@ -49,8 +56,19 @@
             <p id="modalDateText">December 15, 2025</p>
             <label for="teacherNameInput">Your name</label>
             <input type="text" id="teacherNameInput" placeholder="e.g. Ms. Johnson" autocomplete="off">
-            <label for="classNameInput">Class name</label>
+            <label for="classNameInput">Subject / Class name</label>
             <input type="text" id="classNameInput" placeholder="e.g. Algebra II" autocomplete="off">
+            <label for="classBlockSelect">Class Block</label>
+            <select id="classBlockSelect">
+                <option value="">— Select block —</option>
+                <option value="Block 1">Block 1</option>
+                <option value="Block 2">Block 2</option>
+                <option value="Block 3">Block 3</option>
+                <option value="Block 4">Block 4</option>
+            </select>
+            <label class="checkbox-label">
+                <input type="checkbox" id="learningSupportCheckbox"> Learning support required
+            </label>
             <label for="passwordInput">Password (used to delete later)</label>
             <input type="password" id="passwordInput" placeholder="Choose a password" autocomplete="new-password">
             <div class="error-msg" id="modalError"></div>
@@ -86,5 +104,6 @@
     };
 </script>
 
-<script src="script.js"></script></body>
+<script src="script.js"></script>
+</body>
 </html>
