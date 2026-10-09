@@ -14,7 +14,7 @@ body {
 }
 
 .app {
-    max-width: 1000px;
+    max-width: 1300px;              /* widened to fit the hover panel */
     width: 100%;
     background: white;
     border-radius: 32px;
@@ -132,8 +132,18 @@ h1 {
 .legend .avail::before { color: #b9d2e7; }
 .legend .partial::before { color: #f7b731; }
 .legend .full::before { color: #d34e4e; }
+.legend .ls-dot::before { color: #16a34a; }
+
+/* ---------- Calendar + hover panel layout ---------- */
+.calendar-container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
 
 .calendar-grid {
+    flex: 1 1 auto;
+    min-width: 0;                    /* allow shrink inside flex */
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 8px;
@@ -223,13 +233,15 @@ h1 {
     justify-content: space-between;
     align-items: center;
     word-break: break-word;
+    gap: 4px;
 }
 
 .slot-item .slot-text {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 72px;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .slot-item .unmark-btn {
@@ -243,6 +255,7 @@ h1 {
     line-height: 1;
     border-radius: 4px;
     transition: 0.1s;
+    flex-shrink: 0;
 }
 
 .slot-item .unmark-btn:hover {
@@ -259,7 +272,100 @@ h1 {
     color: #a13030;
 }
 
-/* Modal */
+/* ---------- Learning support green dot ---------- */
+.ls-dot {
+    color: #16a34a;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+/* ---------- Hover panel ---------- */
+.hover-panel {
+    flex: 0 0 280px;
+    width: 280px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 18px 16px;
+    position: sticky;
+    top: 20px;
+    min-height: 220px;
+    box-shadow: 0 4px 14px rgba(30, 70, 110, 0.06);
+}
+
+.hover-panel-placeholder {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    text-align: center;
+    padding-top: 60px;
+    line-height: 1.6;
+}
+
+.hover-panel-placeholder strong {
+    display: block;
+    color: #0b2b4a;
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.hover-panel-header {
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #0b2b4a;
+}
+
+.hover-panel-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.hover-slot-card {
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #3c7eb0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: #f8fafc;
+}
+
+.hover-slot-block {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #2563eb;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 5px;
+}
+
+.hover-slot-subject {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.95rem;
+    margin-bottom: 3px;
+}
+
+.hover-slot-teacher {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 8px;
+}
+
+.hover-slot-ls {
+    font-size: 0.78rem;
+    color: #64748b;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.hover-slot-ls strong {
+    color: #16a34a;
+}
+
+/* ---------- Modal */ 
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -316,7 +422,8 @@ h1 {
     margin-bottom: 6px;
 }
 
-.modal input {
+.modal input,
+.modal select {
     width: 100%;
     padding: 12px 14px;
     border: 1.5px solid #cbdae6;
@@ -325,11 +432,34 @@ h1 {
     margin-bottom: 20px;
     outline: none;
     transition: 0.2s;
+    background: white;
+    color: #0b2b4a;
 }
 
-.modal input:focus {
+.modal input:focus,
+.modal select:focus {
     border-color: #2e6b9e;
     box-shadow: 0 0 0 3px rgba(46, 107, 158, 0.1);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: -8px 0 20px;
+    font-size: 0.9rem;
+    color: #1e3b5c;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: #16a34a;
+    cursor: pointer;
+    flex-shrink: 0;
 }
 
 .modal-actions {
@@ -371,13 +501,6 @@ h1 {
     cursor: not-allowed;
 }
 
-.modal .teacher-hint {
-    font-size: 0.8rem;
-    color: #627c96;
-    margin-top: -12px;
-    margin-bottom: 16px;
-}
-
 .error-msg {
     color: #b13e3e;
     font-size: 0.85rem;
@@ -385,4 +508,22 @@ h1 {
     margin-bottom: 16px;
     font-weight: 500;
     min-height: 20px;
+}
+
+
+
+/* ---------- Responsive: stack panel below on small screens ---------- */
+@media (max-width: 900px) {
+    .calendar-container {
+        flex-direction: column;
+    }
+    .hover-panel {
+        flex: 1 1 auto;
+        width: 100%;
+        position: static;
+        min-height: auto;
+    }
+    .hover-panel-placeholder {
+        padding-top: 20px;
+    }
 }
