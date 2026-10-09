@@ -11,7 +11,11 @@ const supabaseClient = createClient(
 
 // ---------- STATE ----------
 const grades = [6, 7, 8, 9, 10, 11, 12];
-const MAX_TESTS_PER_DAY = 2;
+
+// Max tests per day depends on grade: 3 for grades 11 & 12, 2 for all others
+function getMaxTestsPerDay(grade) {
+    return (grade === 11 || grade === 12) ? 3 : 2;
+}
 
 let selectedGrade = 12;
 
@@ -22,7 +26,7 @@ grades.forEach(g => {
     viewState[g] = { year: today.getFullYear(), month: today.getMonth() };
 });
 
-// slotsByGrade[grade] = { "YYYY-M-D": [ { id, teacher, className }, ... ] }
+// slotsByGrade[grade] = { "YYYY-M-D": [ { id, teacher, className, classBlock, learningSupport }, ... ] }
 const slotsByGrade = {};
 grades.forEach(g => slotsByGrade[g] = {});
 
@@ -38,12 +42,15 @@ const monthYearDisplay     = document.getElementById('monthYearDisplay');
 const calendarGrid         = document.getElementById('calendarGrid');
 const prevMonthBtn         = document.getElementById('prevMonthBtn');
 const nextMonthBtn         = document.getElementById('nextMonthBtn');
+const hoverPanel           = document.getElementById('hoverPanel');
 
 const modalOverlay         = document.getElementById('modalOverlay');
 const modalTitle           = document.getElementById('modalTitle');
 const modalDateText        = document.getElementById('modalDateText');
 const teacherNameInput     = document.getElementById('teacherNameInput');
 const classNameInput       = document.getElementById('classNameInput');
+const classBlockSelect     = document.getElementById('classBlockSelect');
+const learningSupportCheckbox = document.getElementById('learningSupportCheckbox');
 const passwordInput        = document.getElementById('passwordInput');
 const modalError           = document.getElementById('modalError');
 const modalCancelBtn       = document.getElementById('modalCancelBtn');
@@ -73,8 +80,6 @@ function toISODate(year, month0, day) {
 }
 
 // ---------- LOAD DATA FROM SUPABASE ----------
-// Fetch all slots for the given grade whose slot_date falls in the
-// visible month, then rebuild slotsByGrade[grade] for that month.
 async function loadMonthForGrade(grade) {
     const { year, month } = viewState[grade];
 
@@ -86,7 +91,7 @@ async function loadMonthForGrade(grade) {
 
     const { data, error } = await supabaseClient
         .from('test_slots')
-        .select('id, slot_date, teacher, class_name')
+        .select('id, slot_date, teacher, class_name, class_block, learning_support')
         .eq('grade', grade)
         .gte('slot_date', from)
         .lte('slot_date', to)
@@ -103,10 +108,9 @@ async function loadMonthForGrade(grade) {
     slotsByGrade[grade] = {};
 
     for (const row of data) {
-        // row.slot_date is "YYYY-MM-DD"; convert to our key "YYYY-M-D" with 0-index month
         const [yStr, mStr, dStr] = row.slot_date.split('-');
         const y = Number(yStr);
-        const m0 = Number(mStr) - 1;   // to 0-index
+        const m0 = Number(mStr) - 1;
         const d = Number(dStr);
         const key = makeKey(y, m0, d);
 
@@ -114,16 +118,20 @@ async function loadMonthForGrade(grade) {
         slotsByGrade[grade][key].push({
             id: row.id,
             teacher: row.teacher,
-            className: row.class_name
+            className: row.class_name,
+            classBlock: row.class_block || '',
+            learningSupport: row.learning_support || false
         });
     }
 }
 
-// ---------- RENDER ----------
+// ---------- RENDER CALENDAR ----------
 function renderCalendar() {
     const state = viewState[selectedGrade];
     const year  = state.year;
     const month = state.month; // 0-index
+
+    const maxTests = getMaxTestsPerDay(selectedGrade);
 
     monthYearDisplay.textContent = `${MONTH_NAMES[month]} ${year}`;
     calendarGrid.innerHTML = '';
@@ -156,7 +164,7 @@ function renderCalendar() {
         const blockedList = slotsByGrade[selectedGrade][key] || [];
         const blockedCount = blockedList.length;
 
-        if (blockedCount >= MAX_TESTS_PER_DAY) dayCell.classList.add('full-day');
+        if (blockedCount >= maxTests) dayCell.classList.add('full-day');
 
         // Day number + badge
         const dayNumberDiv = document.createElement('div');
@@ -165,7 +173,7 @@ function renderCalendar() {
         if (blockedCount > 0) {
             const badge = document.createElement('span');
             badge.className = 'badge-count';
-            badge.textContent = `${blockedCount}/${MAX_TESTS_PER_DAY}`;
+            badge.textContent = `${blockedCount}/${maxTests}`;
             dayNumberDiv.appendChild(badge);
         }
         dayCell.appendChild(dayNumberDiv);
@@ -177,6 +185,15 @@ function renderCalendar() {
         blockedList.forEach((slot, index) => {
             const slotItem = document.createElement('div');
             slotItem.className = 'slot-item';
+
+            // Green dot for learning support
+            if (slot.learningSupport) {
+                const dot = document.createElement('span');
+                dot.className = 'ls-dot';
+                dot.textContent = '●';
+                dot.title = 'Learning support required';
+                slotItem.appendChild(dot);
+            }
 
             const slotText = document.createElement('span');
             slotText.className = 'slot-text';
@@ -199,6 +216,11 @@ function renderCalendar() {
 
         dayCell.appendChild(slotListDiv);
 
+        // Hover: show details on the right panel
+        dayCell.addEventListener('mouseenter', () => {
+            showHoverPanel(year, month, d, blockedList);
+        });
+
         dayCell.addEventListener('click', (e) => {
             if (e.target.closest('.unmark-btn')) return;
             handleDayClick(year, month, d);
@@ -217,6 +239,35 @@ function renderCalendar() {
     }
 }
 
+// ---------- HOVER PANEL ----------
+function showHoverPanel(year, month, day, blockedList) {
+    if (!blockedList || blockedList.length === 0) {
+        hoverPanel.innerHTML = `
+            <div class="hover-panel-placeholder">
+                <p><strong>${MONTH_NAMES[month]} ${day}, ${year}</strong></p>
+                <p>No tests scheduled</p>
+            </div>`;
+        return;
+    }
+
+    let html = `<div class="hover-panel-header">${MONTH_NAMES[month]} ${day}, ${year}</div>`;
+    html += '<div class="hover-panel-slots">';
+
+    blockedList.forEach((slot) => {
+        html += `
+            <div class="hover-slot-card">
+                <div class="hover-slot-block">${slot.classBlock || '—'}</div>
+                <div class="hover-slot-subject">${slot.className}</div>
+                <div class="hover-slot-teacher">${slot.teacher}</div>
+                <div class="hover-slot-ls">Learning Support: <strong>${slot.learningSupport ? 'Yes' : 'No'}</strong></div>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    hoverPanel.innerHTML = html;
+}
+
 // Full refresh: fetch from Supabase then render
 async function refresh() {
     await loadMonthForGrade(selectedGrade);
@@ -227,9 +278,10 @@ async function refresh() {
 function handleDayClick(year, month, day) {
     const key = makeKey(year, month, day);
     const list = slotsByGrade[selectedGrade][key] || [];
+    const maxTests = getMaxTestsPerDay(selectedGrade);
 
-    if (list.length >= MAX_TESTS_PER_DAY) {
-        alert('❌ This day is full (already 2 tests). Please select a different date.');
+    if (list.length >= maxTests) {
+        alert(`❌ This day is full (already ${maxTests} tests). Please select a different date.`);
         return;
     }
     openModal(year, month, day);
@@ -246,6 +298,8 @@ function openModal(year, month, day) {
 
     teacherNameInput.value = '';
     classNameInput.value = '';
+    classBlockSelect.value = '';
+    learningSupportCheckbox.checked = false;
     passwordInput.value = '';
     modalError.textContent = '';
 
@@ -261,33 +315,36 @@ function closeModal() {
 async function confirmBlock() {
     const teacher = teacherNameInput.value.trim();
     const className = classNameInput.value.trim();
+    const classBlock = classBlockSelect.value;
+    const learningSupport = learningSupportCheckbox.checked;
     const password = passwordInput.value.trim();
 
-    if (!teacher || !className || !password) {
-        modalError.textContent = 'Please fill in all three fields.';
+    if (!teacher || !className || !classBlock || !password) {
+        modalError.textContent = 'Please fill in all required fields.';
         return;
     }
 
-    // Disable button while talking to Supabase
     modalConfirmBtn.disabled = true;
     modalConfirmBtn.textContent = 'Saving…';
 
     const isoDate = toISODate(pendingYear, pendingMonth, pendingDay);
 
+    // NOTE: You may need to update your Supabase RPC to accept these new fields
     const { error } = await supabaseClient.rpc('create_test_slot', {
         p_grade: selectedGrade,
         p_slot_date: isoDate,
         p_teacher: teacher,
         p_class_name: className,
-        p_password: password
+        p_password: password,
+        p_class_block: classBlock,
+        p_learning_support: learningSupport
     });
 
     modalConfirmBtn.disabled = false;
     modalConfirmBtn.textContent = 'Block test';
 
     if (error) {
-        // The trigger raises a check_violation when the day is full
-        if (error.message && error.message.toLowerCase().includes('2 tests')) {
+        if (error.message && error.message.toLowerCase().includes('tests')) {
             modalError.textContent = 'This day just became full. Please choose another date.';
         } else {
             modalError.textContent = error.message || 'Could not save. Please try again.';
@@ -344,7 +401,6 @@ async function confirmDelete() {
     }
 
     if (data !== true) {
-        // Password mismatch
         deleteModalError.textContent = 'Incorrect password. Only the teacher who created this slot can delete it.';
         return;
     }
