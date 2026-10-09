@@ -1,0 +1,388 @@
+* {
+    box-sizing: border-box;
+    font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+}
+
+body {
+    background: #f4f7fc;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+}
+
+.app {
+    max-width: 1000px;
+    width: 100%;
+    background: white;
+    border-radius: 32px;
+    box-shadow: 0 20px 40px rgba(0, 20, 40, 0.12);
+    padding: 28px 30px 36px;
+}
+
+h1 {
+    font-size: 1.9rem;
+    font-weight: 600;
+    color: #0b2b4a;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.02em;
+}
+
+.subhead {
+    color: #4a5f73;
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.grade-selector {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #e9eef3;
+    padding: 8px 18px;
+    border-radius: 40px;
+}
+
+.grade-selector label {
+    font-weight: 500;
+    color: #1e3b5c;
+    font-size: 0.9rem;
+}
+
+.grade-selector select {
+    background: white;
+    border: 1px solid #b8c9db;
+    border-radius: 40px;
+    padding: 8px 16px;
+    font-weight: 600;
+    color: #0b2b4a;
+    font-size: 0.95rem;
+    cursor: pointer;
+    outline: none;
+    transition: 0.2s;
+}
+
+.grade-selector select:hover {
+    border-color: #2e6b9e;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 16px 0 12px;
+}
+
+.month-nav {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: #f0f4fa;
+    padding: 6px 12px;
+    border-radius: 50px;
+}
+
+.month-nav button {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #1f4e7a;
+    padding: 4px 10px;
+    border-radius: 50%;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.month-nav button:hover {
+    background: #d0dfee;
+}
+
+.month-year {
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: #0b2b4a;
+    min-width: 160px;
+    text-align: center;
+}
+
+.legend {
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: #3e5670;
+}
+
+.legend span::before {
+    content: "●";
+    margin-right: 4px;
+    font-size: 0.9rem;
+}
+
+.legend .avail::before { color: #b9d2e7; }
+.legend .partial::before { color: #f7b731; }
+.legend .full::before { color: #d34e4e; }
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    background: #f0f4fa;
+    padding: 16px;
+    border-radius: 24px;
+}
+
+.weekday {
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #527a9c;
+    padding: 8px 0;
+}
+
+.day-cell {
+    background: white;
+    border-radius: 16px;
+    padding: 10px 6px 8px;
+    min-height: 110px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    transition: 0.15s;
+    cursor: pointer;
+    border: 1px solid transparent;
+    position: relative;
+}
+
+.day-cell:hover {
+    border-color: #a6c1db;
+    box-shadow: 0 6px 12px rgba(30, 70, 110, 0.08);
+}
+
+.day-cell.empty {
+    background: #eef3f9;
+    color: #9bb1c7;
+    box-shadow: none;
+    cursor: default;
+    border: none;
+}
+
+.day-cell.empty:hover {
+    border: none;
+    box-shadow: none;
+}
+
+.day-number {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1e3b5c;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.badge-count {
+    background: #e3eaf2;
+    border-radius: 30px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #1e4b74;
+}
+
+.slot-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.slot-item {
+    background: #eef3f9;
+    border-left: 3px solid #3c7eb0;
+    border-radius: 8px;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    color: #1a2e44;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    word-break: break-word;
+}
+
+.slot-item .slot-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 72px;
+}
+
+.slot-item .unmark-btn {
+    background: none;
+    border: none;
+    color: #b13e3e;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    border-radius: 4px;
+    transition: 0.1s;
+}
+
+.slot-item .unmark-btn:hover {
+    background: #ffd9d9;
+    color: #a00;
+}
+
+.day-cell.full-day {
+    background: #fff0f0;
+    border-color: #e6b3b3;
+}
+
+.day-cell.full-day .day-number {
+    color: #a13030;
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 25, 45, 0.5);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    visibility: hidden;
+    opacity: 0;
+    transition: 0.2s;
+}
+
+.modal-overlay.active {
+    visibility: visible;
+    opacity: 1;
+}
+
+.modal {
+    background: white;
+    border-radius: 28px;
+    width: 380px;
+    max-width: 92vw;
+    padding: 26px 28px 28px;
+    box-shadow: 0 30px 50px rgba(0, 0, 0, 0.3);
+    transform: scale(0.96);
+    transition: 0.2s;
+}
+
+.modal-overlay.active .modal {
+    transform: scale(1);
+}
+
+.modal h3 {
+    margin: 0 0 6px;
+    font-size: 1.5rem;
+    color: #0b2b4a;
+    font-weight: 600;
+}
+
+.modal p {
+    color: #3f5b77;
+    margin: 0 0 18px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.modal label {
+    display: block;
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: #1e3b5c;
+    margin-bottom: 6px;
+}
+
+.modal input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid #cbdae6;
+    border-radius: 16px;
+    font-size: 1rem;
+    margin-bottom: 20px;
+    outline: none;
+    transition: 0.2s;
+}
+
+.modal input:focus {
+    border-color: #2e6b9e;
+    box-shadow: 0 0 0 3px rgba(46, 107, 158, 0.1);
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modal-actions button {
+    padding: 10px 22px;
+    border-radius: 40px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.btn-cancel {
+    background: #eef2f6;
+    color: #335e82;
+}
+
+.btn-cancel:hover {
+    background: #dae4ed;
+}
+
+.btn-primary {
+    background: #1e5c8b;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #144a72;
+}
+
+.btn-primary:disabled {
+    background: #b2c7da;
+    cursor: not-allowed;
+}
+
+.modal .teacher-hint {
+    font-size: 0.8rem;
+    color: #627c96;
+    margin-top: -12px;
+    margin-bottom: 16px;
+}
+
+.error-msg {
+    color: #b13e3e;
+    font-size: 0.85rem;
+    margin-top: -14px;
+    margin-bottom: 16px;
+    font-weight: 500;
+    min-height: 20px;
+}

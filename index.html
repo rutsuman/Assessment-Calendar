@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Test Scheduler · Grade 6–12</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+        <h1>📅 Test Scheduler</h1>
+        <div class="subhead">
+            <div class="grade-selector">
+                <label for="gradeSelect">Grade:</label>
+                <select id="gradeSelect">
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12" selected>12</option>
+                </select>
+            </div>
+            <div class="legend">
+                <span class="avail">available</span>
+                <span class="partial">1 test</span>
+                <span class="full">2 tests (full)</span>
+            </div>
+        </div>
+
+        <div class="calendar-header">
+            <div class="month-nav">
+                <button id="prevMonthBtn" aria-label="Previous month">←</button>
+                <span class="month-year" id="monthYearDisplay">—</span>
+                <button id="nextMonthBtn" aria-label="Next month">→</button>
+            </div>
+        </div>
+
+        <div class="calendar-grid" id="calendarGrid">
+            <!-- Weekday headers and days injected by JS -->
+        </div>
+    </div>
+
+    <!-- Modal for blocking a time slot -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h3 id="modalTitle">Block test time</h3>
+            <p id="modalDateText">December 15, 2025</p>
+            <label for="teacherNameInput">Your name</label>
+            <input type="text" id="teacherNameInput" placeholder="e.g. Ms. Johnson" autocomplete="off">
+            <label for="classNameInput">Class name</label>
+            <input type="text" id="classNameInput" placeholder="e.g. Algebra II" autocomplete="off">
+            <label for="passwordInput">Password (used to delete later)</label>
+            <input type="password" id="passwordInput" placeholder="Choose a password" autocomplete="new-password">
+            <div class="error-msg" id="modalError"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="modalCancelBtn">Cancel</button>
+                <button class="btn-primary" id="modalConfirmBtn">Block test</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for password confirmation when deleting -->
+    <div class="modal-overlay" id="deleteModalOverlay">
+        <div class="modal">
+            <h3>🔒 Enter password to delete</h3>
+            <p id="deleteModalInfo">Slot: Ms. Johnson · Algebra II</p>
+            <label for="deletePasswordInput">Password</label>
+            <input type="password" id="deletePasswordInput" placeholder="Your password" autocomplete="off">
+            <div class="error-msg" id="deleteModalError"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" id="deleteModalCancelBtn">Cancel</button>
+                <button class="btn-primary" id="deleteModalConfirmBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase JS client (UMD build works with a plain <script> tag) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+    window.APP_CONFIG = {
+        SUPABASE_URL: 'https://jpyqywcglcilyfldmcni.supabase.co',
+        SUPABASE_ANON_KEY: 'sb_publishable_4uxwz1ZTYQTDkPVwkiDUIA_xkCAvl2e'
+    };
+</script>
+
+<script src="script.js"></script></body>
+</html>
