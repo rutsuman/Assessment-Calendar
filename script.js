@@ -63,6 +63,15 @@ const deleteModalError     = document.getElementById('deleteModalError');
 const deleteModalCancelBtn = document.getElementById('deleteModalCancelBtn');
 const deleteModalConfirmBtn= document.getElementById('deleteModalConfirmBtn');
 
+const exportBtn            = document.getElementById('exportBtn');
+const exportModalOverlay   = document.getElementById('exportModalOverlay');
+const exportGradeLabel     = document.getElementById('exportGradeLabel');
+const exportFromInput      = document.getElementById('exportFromInput');
+const exportToInput        = document.getElementById('exportToInput');
+const exportModalError     = document.getElementById('exportModalError');
+const exportModalCancelBtn = document.getElementById('exportModalCancelBtn');
+const exportModalConfirmBtn= document.getElementById('exportModalConfirmBtn');
+
 // ---------- HELPERS ----------
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
                      'July', 'August', 'September', 'October', 'November', 'December'];
@@ -409,6 +418,101 @@ async function confirmDelete() {
     await refresh();
 }
 
+// ---------- EXPORT TO EXCEL ----------
+function openExportModal() {
+    const state = viewState[selectedGrade];
+
+    // Default the range to the currently-viewed month
+    const firstDay = new Date(state.year, state.month, 1);
+    const lastDay  = new Date(state.year, state.month + 1, 0);
+
+    exportFromInput.value = toISODate(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate());
+    exportToInput.value   = toISODate(lastDay.getFullYear(),  lastDay.getMonth(),  lastDay.getDate());
+
+    exportGradeLabel.textContent = selectedGrade;
+    exportModalError.textContent = '';
+
+    exportModalOverlay.classList.add('active');
+    exportFromInput.focus();
+}
+
+function closeExportModal() {
+    exportModalOverlay.classList.remove('active');
+}
+
+async function confirmExport() {
+    const fromStr = exportFromInput.value;
+    const toStr   = exportToInput.value;
+
+    if (!fromStr || !toStr) {
+        exportModalError.textContent = 'Please choose both a start and end date.';
+        return;
+    }
+    if (fromStr > toStr) {  // ISO strings compare correctly
+        exportModalError.textContent = 'The "From" date must be on or before the "To" date.';
+        return;
+    }
+
+    exportModalConfirmBtn.disabled = true;
+    exportModalConfirmBtn.textContent = 'Exporting…';
+
+    const { data, error } = await supabaseClient
+        .from('test_slots')
+        .select('slot_date, teacher, class_name, class_block, learning_support')
+        .eq('grade', selectedGrade)
+        .gte('slot_date', fromStr)
+        .lte('slot_date', toStr)
+        .order('slot_date', { ascending: true })
+        .order('created_at', { ascending: true });
+
+    exportModalConfirmBtn.disabled = false;
+    exportModalConfirmBtn.textContent = 'Export';
+
+    if (error) {
+        exportModalError.textContent = error.message || 'Could not load data.';
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        exportModalError.textContent = 'No tests scheduled in that range.';
+        return;
+    }
+
+    // Build the worksheet
+    const aoa = [
+        ['Date', 'Teacher', 'Subject / Class', 'Block', 'Learning Support']
+    ];
+
+    for (const row of data) {
+        const [y, m, d] = row.slot_date.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const dateStr = dateObj.toLocaleDateString('en-GB', {
+            day: '2-digit', month: '2-digit', year: 'numeric'
+        });
+        aoa.push([
+            dateStr,
+            row.teacher,
+            row.class_name,
+            row.class_block || '',
+            row.learning_support ? 'Yes' : 'No'
+        ]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [
+        { wch: 12 }, { wch: 24 }, { wch: 28 }, { wch: 12 }, { wch: 18 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `Grade ${selectedGrade}`);
+
+    // Filename uses the actual range the user chose
+    const filename = `TestSchedule_G${selectedGrade}_${fromStr}_to_${toStr}.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+    closeExportModal();
+}
+
 // ---------- MONTH NAV ----------
 async function changeMonth(delta) {
     const st = viewState[selectedGrade];
@@ -451,6 +555,18 @@ deleteModalOverlay.addEventListener('click', (e) => {
 deleteModalOverlay.addEventListener('keydown', (e) => {
     if (e.key === 'Enter')  { e.preventDefault(); confirmDelete(); }
     if (e.key === 'Escape') closeDeleteModal();
+});
+
+exportBtn.addEventListener('click', openExportModal);
+exportModalCancelBtn.addEventListener('click', closeExportModal);
+exportModalConfirmBtn.addEventListener('click', confirmExport);
+
+exportModalOverlay.addEventListener('click', (e) => {
+    if (e.target === exportModalOverlay) closeExportModal();
+});
+exportModalOverlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter')  { e.preventDefault(); confirmExport(); }
+    if (e.key === 'Escape') closeExportModal();
 });
 
 // ---------- INIT ----------
