@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="app">
-        <h1>📅 Assessment Calendar</h1>
+        <h1>📅 Test Scheduler</h1>
         <div class="subhead">
             <div class="grade-selector">
                 <label for="gradeSelect">Grade:</label>
@@ -35,6 +35,7 @@
                 <span class="month-year" id="monthYearDisplay">—</span>
                 <button id="nextMonthBtn" aria-label="Next month">→</button>
             </div>
+            <button id="exportBtn" class="btn-export">⬇ Export to Excel</button>
         </div>
 
         <div class="calendar-container">
@@ -94,16 +95,39 @@
         </div>
     </div>
 
+    <!-- Modal for choosing the export date range -->
+    <div class="modal-overlay" id="exportModalOverlay">
+        <div class="modal">
+            <h3>⬇ Export to Excel</h3>
+            <p>Choose the date range you want to export for Grade <span id="exportGradeLabel">12</span>.</p>
+
+            <label for="exportFromInput">From</label>
+            <input type="date" id="exportFromInput">
+
+            <label for="exportToInput">To</label>
+            <input type="date" id="exportToInput">
+
+            <div class="error-msg" id="exportModalError"></div>
+
+            <div class="modal-actions">
+                <button class="btn-cancel" id="exportModalCancelBtn">Cancel</button>
+                <button class="btn-primary" id="exportModalConfirmBtn">Export</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Supabase JS client (UMD build works with a plain <script> tag) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-<script>
-    window.APP_CONFIG = {
-        SUPABASE_URL: 'https://jpyqywcglcilyfldmcni.supabase.co',
-        SUPABASE_ANON_KEY: 'sb_publishable_4uxwz1ZTYQTDkPVwkiDUIA_xkCAvl2e'
-    };
-</script>
+    <script>
+        window.APP_CONFIG = {
+            SUPABASE_URL: 'https://jpyqywcglcilyfldmcni.supabase.co',
+            SUPABASE_ANON_KEY: 'sb_publishable_4uxwz1ZTYQTDkPVwkiDUIA_xkCAvl2e'
+        };
+    </script>
 
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
