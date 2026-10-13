@@ -1,575 +1,549 @@
-// =========================================================
-//  Test Scheduler — Supabase version
-// =========================================================
-
-// ---------- SUPABASE CLIENT ----------
-const { createClient } = window.supabase;
-const supabaseClient = createClient(
-    window.APP_CONFIG.SUPABASE_URL,
-    window.APP_CONFIG.SUPABASE_ANON_KEY
-);
-
-// ---------- STATE ----------
-const grades = [6, 7, 8, 9, 10, 11, 12];
-
-// Max tests per day depends on grade: 3 for grades 11 & 12, 2 for all others
-function getMaxTestsPerDay(grade) {
-    return (grade === 11 || grade === 12) ? 3 : 2;
+* {
+    box-sizing: border-box;
+    font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 }
 
-let selectedGrade = 12;
-
-// View state (which month we're showing, per grade)
-const viewState = {};
-const today = new Date();
-grades.forEach(g => {
-    viewState[g] = { year: today.getFullYear(), month: today.getMonth() };
-});
-
-// slotsByGrade[grade] = { "YYYY-M-D": [ { id, teacher, className, classBlock, learningSupport }, ... ] }
-const slotsByGrade = {};
-grades.forEach(g => slotsByGrade[g] = {});
-
-// Modal state
-let pendingYear, pendingMonth, pendingDay;
-
-// Delete-modal state
-let pendingDelete = null;
-
-// ---------- DOM ----------
-const gradeSelect          = document.getElementById('gradeSelect');
-const monthYearDisplay     = document.getElementById('monthYearDisplay');
-const calendarGrid         = document.getElementById('calendarGrid');
-const prevMonthBtn         = document.getElementById('prevMonthBtn');
-const nextMonthBtn         = document.getElementById('nextMonthBtn');
-const hoverPanel           = document.getElementById('hoverPanel');
-
-const modalOverlay         = document.getElementById('modalOverlay');
-const modalTitle           = document.getElementById('modalTitle');
-const modalDateText        = document.getElementById('modalDateText');
-const teacherNameInput     = document.getElementById('teacherNameInput');
-const classNameInput       = document.getElementById('classNameInput');
-const classBlockSelect     = document.getElementById('classBlockSelect');
-const learningSupportCheckbox = document.getElementById('learningSupportCheckbox');
-const passwordInput        = document.getElementById('passwordInput');
-const modalError           = document.getElementById('modalError');
-const modalCancelBtn       = document.getElementById('modalCancelBtn');
-const modalConfirmBtn      = document.getElementById('modalConfirmBtn');
-
-const deleteModalOverlay   = document.getElementById('deleteModalOverlay');
-const deleteModalInfo      = document.getElementById('deleteModalInfo');
-const deletePasswordInput  = document.getElementById('deletePasswordInput');
-const deleteModalError     = document.getElementById('deleteModalError');
-const deleteModalCancelBtn = document.getElementById('deleteModalCancelBtn');
-const deleteModalConfirmBtn= document.getElementById('deleteModalConfirmBtn');
-
-const exportBtn            = document.getElementById('exportBtn');
-const exportModalOverlay   = document.getElementById('exportModalOverlay');
-const exportGradeLabel     = document.getElementById('exportGradeLabel');
-const exportFromInput      = document.getElementById('exportFromInput');
-const exportToInput        = document.getElementById('exportToInput');
-const exportModalError     = document.getElementById('exportModalError');
-const exportModalCancelBtn = document.getElementById('exportModalCancelBtn');
-const exportModalConfirmBtn= document.getElementById('exportModalConfirmBtn');
-
-// ---------- HELPERS ----------
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
-                     'July', 'August', 'September', 'October', 'November', 'December'];
-
-// Key format used in slotsByGrade: "YYYY-M-D" with month 0-indexed
-function makeKey(year, month0, day) {
-    return `${year}-${month0}-${day}`;
+body {
+    background: #f4f7fc;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
 }
 
-// Convert (year, month0, day) to a Postgres-friendly "YYYY-MM-DD" string (month 1-indexed)
-function toISODate(year, month0, day) {
-    const mm = String(month0 + 1).padStart(2, '0');
-    const dd = String(day).padStart(2, '0');
-    return `${year}-${mm}-${dd}`;
+.app {
+    max-width: 1300px;              /* widened to fit the hover panel */
+    width: 100%;
+    background: white;
+    border-radius: 32px;
+    box-shadow: 0 20px 40px rgba(0, 20, 40, 0.12);
+    padding: 28px 30px 36px;
 }
 
-// ---------- LOAD DATA FROM SUPABASE ----------
-async function loadMonthForGrade(grade) {
-    const { year, month } = viewState[grade];
+h1 {
+    font-size: 1.9rem;
+    font-weight: 600;
+    color: #0b2b4a;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.02em;
+}
 
-    const firstOfMonth = new Date(year, month, 1);
-    const lastOfMonth  = new Date(year, month + 1, 0);
+.subhead {
+    color: #4a5f73;
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
 
-    const from = toISODate(firstOfMonth.getFullYear(), firstOfMonth.getMonth(), firstOfMonth.getDate());
-    const to   = toISODate(lastOfMonth.getFullYear(),  lastOfMonth.getMonth(),  lastOfMonth.getDate());
+.grade-selector {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #e9eef3;
+    padding: 8px 18px;
+    border-radius: 40px;
+}
 
-    const { data, error } = await supabaseClient
-        .from('test_slots')
-        .select('id, slot_date, teacher, class_name, class_block, learning_support')
-        .eq('grade', grade)
-        .gte('slot_date', from)
-        .lte('slot_date', to)
-        .order('slot_date', { ascending: true })
-        .order('created_at', { ascending: true });
+.grade-selector label {
+    font-weight: 500;
+    color: #1e3b5c;
+    font-size: 0.9rem;
+}
 
-    if (error) {
-        console.error('Supabase load error:', error);
-        alert('Could not load the calendar: ' + error.message);
-        return;
+.grade-selector select {
+    background: white;
+    border: 1px solid #b8c9db;
+    border-radius: 40px;
+    padding: 8px 16px;
+    font-weight: 600;
+    color: #0b2b4a;
+    font-size: 0.95rem;
+    cursor: pointer;
+    outline: none;
+    transition: 0.2s;
+}
+
+.grade-selector select:hover {
+    border-color: #2e6b9e;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 16px 0 12px;
+}
+
+.month-nav {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: #f0f4fa;
+    padding: 6px 12px;
+    border-radius: 50px;
+}
+
+.month-nav button {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #1f4e7a;
+    padding: 4px 10px;
+    border-radius: 50%;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.month-nav button:hover {
+    background: #d0dfee;
+}
+
+.month-year {
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: #0b2b4a;
+    min-width: 160px;
+    text-align: center;
+}
+
+.legend {
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: #3e5670;
+}
+
+.legend span::before {
+    content: "●";
+    margin-right: 4px;
+    font-size: 0.9rem;
+}
+
+.legend .avail::before { color: #b9d2e7; }
+.legend .partial::before { color: #f7b731; }
+.legend .full::before { color: #d34e4e; }
+.legend .ls-dot::before { color: #16a34a; }
+
+/* ---------- Calendar + hover panel layout ---------- */
+.calendar-container {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.calendar-grid {
+    flex: 1 1 auto;
+    min-width: 0;                    /* allow shrink inside flex */
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    background: #f0f4fa;
+    padding: 16px;
+    border-radius: 24px;
+}
+
+.weekday {
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #527a9c;
+    padding: 8px 0;
+}
+
+.day-cell {
+    background: white;
+    border-radius: 16px;
+    padding: 10px 6px 8px;
+    min-height: 110px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    transition: 0.15s;
+    cursor: pointer;
+    border: 1px solid transparent;
+    position: relative;
+}
+
+.day-cell:hover {
+    border-color: #a6c1db;
+    box-shadow: 0 6px 12px rgba(30, 70, 110, 0.08);
+}
+
+.day-cell.empty {
+    background: #eef3f9;
+    color: #9bb1c7;
+    box-shadow: none;
+    cursor: default;
+    border: none;
+}
+
+.day-cell.empty:hover {
+    border: none;
+    box-shadow: none;
+}
+
+.day-number {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1e3b5c;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.badge-count {
+    background: #e3eaf2;
+    border-radius: 30px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #1e4b74;
+}
+
+.slot-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.slot-item {
+    background: #eef3f9;
+    border-left: 3px solid #3c7eb0;
+    border-radius: 8px;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    color: #1a2e44;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    word-break: break-word;
+    gap: 4px;
+}
+
+.slot-item .slot-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.slot-item .unmark-btn {
+    background: none;
+    border: none;
+    color: #b13e3e;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    border-radius: 4px;
+    transition: 0.1s;
+    flex-shrink: 0;
+}
+
+.slot-item .unmark-btn:hover {
+    background: #ffd9d9;
+    color: #a00;
+}
+
+.day-cell.full-day {
+    background: #fff0f0;
+    border-color: #e6b3b3;
+}
+
+.day-cell.full-day .day-number {
+    color: #a13030;
+}
+
+/* ---------- Learning support green dot ---------- */
+.ls-dot {
+    color: #16a34a;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+/* ---------- Hover panel ---------- */
+.hover-panel {
+    flex: 0 0 280px;
+    width: 280px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    padding: 18px 16px;
+    position: sticky;
+    top: 20px;
+    min-height: 220px;
+    box-shadow: 0 4px 14px rgba(30, 70, 110, 0.06);
+}
+
+.hover-panel-placeholder {
+    color: #94a3b8;
+    font-size: 0.9rem;
+    text-align: center;
+    padding-top: 60px;
+    line-height: 1.6;
+}
+
+.hover-panel-placeholder strong {
+    display: block;
+    color: #0b2b4a;
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.hover-panel-header {
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #0b2b4a;
+}
+
+.hover-panel-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.hover-slot-card {
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #3c7eb0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: #f8fafc;
+}
+
+.hover-slot-block {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #2563eb;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 5px;
+}
+
+.hover-slot-subject {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.95rem;
+    margin-bottom: 3px;
+}
+
+.hover-slot-teacher {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 8px;
+}
+
+.hover-slot-ls {
+    font-size: 0.78rem;
+    color: #64748b;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.hover-slot-ls strong {
+    color: #16a34a;
+}
+
+/* ---------- Modal */ 
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 25, 45, 0.5);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    visibility: hidden;
+    opacity: 0;
+    transition: 0.2s;
+}
+
+.modal-overlay.active {
+    visibility: visible;
+    opacity: 1;
+}
+
+.modal {
+    background: white;
+    border-radius: 28px;
+    width: 380px;
+    max-width: 92vw;
+    padding: 26px 28px 28px;
+    box-shadow: 0 30px 50px rgba(0, 0, 0, 0.3);
+    transform: scale(0.96);
+    transition: 0.2s;
+}
+
+.modal-overlay.active .modal {
+    transform: scale(1);
+}
+
+.modal h3 {
+    margin: 0 0 6px;
+    font-size: 1.5rem;
+    color: #0b2b4a;
+    font-weight: 600;
+}
+
+.modal p {
+    color: #3f5b77;
+    margin: 0 0 18px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.modal label {
+    display: block;
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: #1e3b5c;
+    margin-bottom: 6px;
+}
+
+.modal input,
+.modal select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1.5px solid #cbdae6;
+    border-radius: 16px;
+    font-size: 1rem;
+    margin-bottom: 20px;
+    outline: none;
+    transition: 0.2s;
+    background: white;
+    color: #0b2b4a;
+}
+
+.modal input:focus,
+.modal select:focus {
+    border-color: #2e6b9e;
+    box-shadow: 0 0 0 3px rgba(46, 107, 158, 0.1);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: -8px 0 20px;
+    font-size: 0.9rem;
+    color: #1e3b5c;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: #16a34a;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modal-actions button {
+    padding: 10px 22px;
+    border-radius: 40px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.btn-cancel {
+    background: #eef2f6;
+    color: #335e82;
+}
+
+.btn-cancel:hover {
+    background: #dae4ed;
+}
+
+.btn-primary {
+    background: #1e5c8b;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #144a72;
+}
+
+.btn-primary:disabled {
+    background: #b2c7da;
+    cursor: not-allowed;
+}
+
+.error-msg {
+    color: #b13e3e;
+    font-size: 0.85rem;
+    margin-top: -14px;
+    margin-bottom: 16px;
+    font-weight: 500;
+    min-height: 20px;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-export {
+    background: #16a34a;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.btn-export:hover  { background: #15803d; }
+.btn-export:active { background: #166534; }
+
+
+/* ---------- Responsive: stack panel below on small screens ---------- */
+@media (max-width: 900px) {
+    .calendar-container {
+        flex-direction: column;
     }
-
-    // Rebuild this grade's bucket for just this month
-    slotsByGrade[grade] = {};
-
-    for (const row of data) {
-        const [yStr, mStr, dStr] = row.slot_date.split('-');
-        const y = Number(yStr);
-        const m0 = Number(mStr) - 1;
-        const d = Number(dStr);
-        const key = makeKey(y, m0, d);
-
-        if (!slotsByGrade[grade][key]) slotsByGrade[grade][key] = [];
-        slotsByGrade[grade][key].push({
-            id: row.id,
-            teacher: row.teacher,
-            className: row.class_name,
-            classBlock: row.class_block || '',
-            learningSupport: row.learning_support || false
-        });
+    .hover-panel {
+        flex: 1 1 auto;
+        width: 100%;
+        position: static;
+        min-height: auto;
+    }
+    .hover-panel-placeholder {
+        padding-top: 20px;
     }
 }
-
-// ---------- RENDER CALENDAR ----------
-function renderCalendar() {
-    const state = viewState[selectedGrade];
-    const year  = state.year;
-    const month = state.month; // 0-index
-
-    const maxTests = getMaxTestsPerDay(selectedGrade);
-
-    monthYearDisplay.textContent = `${MONTH_NAMES[month]} ${year}`;
-    calendarGrid.innerHTML = '';
-
-    // Weekday headers
-    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(wd => {
-        const div = document.createElement('div');
-        div.className = 'weekday';
-        div.textContent = wd;
-        calendarGrid.appendChild(div);
-    });
-
-    const firstDay = new Date(year, month, 1);
-    const startWeekday = firstDay.getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    // Leading blanks
-    for (let i = 0; i < startWeekday; i++) {
-        const emptyCell = document.createElement('div');
-        emptyCell.className = 'day-cell empty';
-        calendarGrid.appendChild(emptyCell);
-    }
-
-    // Days
-    for (let d = 1; d <= daysInMonth; d++) {
-        const dayCell = document.createElement('div');
-        dayCell.className = 'day-cell';
-
-        const key = makeKey(year, month, d);
-        const blockedList = slotsByGrade[selectedGrade][key] || [];
-        const blockedCount = blockedList.length;
-
-        if (blockedCount >= maxTests) dayCell.classList.add('full-day');
-
-        // Day number + badge
-        const dayNumberDiv = document.createElement('div');
-        dayNumberDiv.className = 'day-number';
-        dayNumberDiv.innerHTML = `<span>${d}</span>`;
-        if (blockedCount > 0) {
-            const badge = document.createElement('span');
-            badge.className = 'badge-count';
-            badge.textContent = `${blockedCount}/${maxTests}`;
-            dayNumberDiv.appendChild(badge);
-        }
-        dayCell.appendChild(dayNumberDiv);
-
-        // Slot list
-        const slotListDiv = document.createElement('div');
-        slotListDiv.className = 'slot-list';
-
-        blockedList.forEach((slot, index) => {
-            const slotItem = document.createElement('div');
-            slotItem.className = 'slot-item';
-
-            // Green dot for learning support
-            if (slot.learningSupport) {
-                const dot = document.createElement('span');
-                dot.className = 'ls-dot';
-                dot.textContent = '●';
-                dot.title = 'Learning support required';
-                slotItem.appendChild(dot);
-            }
-
-            const slotText = document.createElement('span');
-            slotText.className = 'slot-text';
-            slotText.textContent = `${slot.teacher} · ${slot.className}`;
-            slotText.title = `${slot.teacher} — ${slot.className}`;
-
-            const unmarkBtn = document.createElement('button');
-            unmarkBtn.className = 'unmark-btn';
-            unmarkBtn.textContent = '✕';
-            unmarkBtn.setAttribute('aria-label', `Unmark ${slot.teacher} test`);
-            unmarkBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                openDeleteModal(year, month, d, index, slot);
-            });
-
-            slotItem.appendChild(slotText);
-            slotItem.appendChild(unmarkBtn);
-            slotListDiv.appendChild(slotItem);
-        });
-
-        dayCell.appendChild(slotListDiv);
-
-        // Hover: show details on the right panel
-        dayCell.addEventListener('mouseenter', () => {
-            showHoverPanel(year, month, d, blockedList);
-        });
-
-        dayCell.addEventListener('click', (e) => {
-            if (e.target.closest('.unmark-btn')) return;
-            handleDayClick(year, month, d);
-        });
-
-        calendarGrid.appendChild(dayCell);
-    }
-
-    // Trailing blanks
-    const totalCells = startWeekday + daysInMonth;
-    const remaining = (7 - (totalCells % 7)) % 7;
-    for (let i = 0; i < remaining; i++) {
-        const emptyCell = document.createElement('div');
-        emptyCell.className = 'day-cell empty';
-        calendarGrid.appendChild(emptyCell);
-    }
-}
-
-// ---------- HOVER PANEL ----------
-function showHoverPanel(year, month, day, blockedList) {
-    if (!blockedList || blockedList.length === 0) {
-        hoverPanel.innerHTML = `
-            <div class="hover-panel-placeholder">
-                <p><strong>${MONTH_NAMES[month]} ${day}, ${year}</strong></p>
-                <p>No tests scheduled</p>
-            </div>`;
-        return;
-    }
-
-    let html = `<div class="hover-panel-header">${MONTH_NAMES[month]} ${day}, ${year}</div>`;
-    html += '<div class="hover-panel-slots">';
-
-    blockedList.forEach((slot) => {
-        html += `
-            <div class="hover-slot-card">
-                <div class="hover-slot-block">${slot.classBlock || '—'}</div>
-                <div class="hover-slot-subject">${slot.className}</div>
-                <div class="hover-slot-teacher">${slot.teacher}</div>
-                <div class="hover-slot-ls">Learning Support: <strong>${slot.learningSupport ? 'Yes' : 'No'}</strong></div>
-            </div>
-        `;
-    });
-
-    html += '</div>';
-    hoverPanel.innerHTML = html;
-}
-
-// Full refresh: fetch from Supabase then render
-async function refresh() {
-    await loadMonthForGrade(selectedGrade);
-    renderCalendar();
-}
-
-// ---------- DAY CLICK ----------
-function handleDayClick(year, month, day) {
-    const key = makeKey(year, month, day);
-    const list = slotsByGrade[selectedGrade][key] || [];
-    const maxTests = getMaxTestsPerDay(selectedGrade);
-
-    if (list.length >= maxTests) {
-        alert(`❌ This day is full (already ${maxTests} tests). Please select a different date.`);
-        return;
-    }
-    openModal(year, month, day);
-}
-
-// ---------- BLOCK MODAL ----------
-function openModal(year, month, day) {
-    pendingYear = year;
-    pendingMonth = month;
-    pendingDay = day;
-
-    modalDateText.textContent = `${MONTH_NAMES[month]} ${day}, ${year}`;
-    modalTitle.textContent = 'Block test time';
-
-    teacherNameInput.value = '';
-    classNameInput.value = '';
-    classBlockSelect.value = '';
-    learningSupportCheckbox.checked = false;
-    passwordInput.value = '';
-    modalError.textContent = '';
-
-    modalOverlay.classList.add('active');
-    teacherNameInput.focus();
-}
-
-function closeModal() {
-    modalOverlay.classList.remove('active');
-    pendingYear = pendingMonth = pendingDay = null;
-}
-
-async function confirmBlock() {
-    const teacher = teacherNameInput.value.trim();
-    const className = classNameInput.value.trim();
-    const classBlock = classBlockSelect.value;
-    const learningSupport = learningSupportCheckbox.checked;
-    const password = passwordInput.value.trim();
-
-    if (!teacher || !className || !classBlock || !password) {
-        modalError.textContent = 'Please fill in all required fields.';
-        return;
-    }
-
-    modalConfirmBtn.disabled = true;
-    modalConfirmBtn.textContent = 'Saving…';
-
-    const isoDate = toISODate(pendingYear, pendingMonth, pendingDay);
-
-    // NOTE: You may need to update your Supabase RPC to accept these new fields
-    const { error } = await supabaseClient.rpc('create_test_slot', {
-        p_grade: selectedGrade,
-        p_slot_date: isoDate,
-        p_teacher: teacher,
-        p_class_name: className,
-        p_password: password,
-        p_class_block: classBlock,
-        p_learning_support: learningSupport
-    });
-
-    modalConfirmBtn.disabled = false;
-    modalConfirmBtn.textContent = 'Block test';
-
-    if (error) {
-        if (error.message && error.message.toLowerCase().includes('tests')) {
-            modalError.textContent = 'This day just became full. Please choose another date.';
-        } else {
-            modalError.textContent = error.message || 'Could not save. Please try again.';
-        }
-        return;
-    }
-
-    closeModal();
-    await refresh();
-}
-
-// ---------- DELETE MODAL ----------
-function openDeleteModal(year, month, day, index, slot) {
-    pendingDelete = { year, month, day, index, slot };
-
-    deleteModalInfo.textContent = `Slot: ${slot.teacher} · ${slot.className}`;
-    deletePasswordInput.value = '';
-    deleteModalError.textContent = '';
-
-    deleteModalOverlay.classList.add('active');
-    deletePasswordInput.focus();
-}
-
-function closeDeleteModal() {
-    deleteModalOverlay.classList.remove('active');
-    pendingDelete = null;
-}
-
-async function confirmDelete() {
-    if (!pendingDelete) return;
-
-    const { slot } = pendingDelete;
-    const entered = deletePasswordInput.value.trim();
-
-    if (!entered) {
-        deleteModalError.textContent = 'Please enter the password.';
-        return;
-    }
-
-    deleteModalConfirmBtn.disabled = true;
-    deleteModalConfirmBtn.textContent = 'Deleting…';
-
-    const { data, error } = await supabaseClient.rpc('delete_test_slot', {
-        p_id: slot.id,
-        p_password: entered
-    });
-
-    deleteModalConfirmBtn.disabled = false;
-    deleteModalConfirmBtn.textContent = 'Delete';
-
-    if (error) {
-        deleteModalError.textContent = error.message || 'Could not delete.';
-        return;
-    }
-
-    if (data !== true) {
-        deleteModalError.textContent = 'Incorrect password. Only the teacher who created this slot can delete it.';
-        return;
-    }
-
-    closeDeleteModal();
-    await refresh();
-}
-
-// ---------- EXPORT TO EXCEL ----------
-function openExportModal() {
-    const state = viewState[selectedGrade];
-
-    // Default the range to the currently-viewed month
-    const firstDay = new Date(state.year, state.month, 1);
-    const lastDay  = new Date(state.year, state.month + 1, 0);
-
-    exportFromInput.value = toISODate(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate());
-    exportToInput.value   = toISODate(lastDay.getFullYear(),  lastDay.getMonth(),  lastDay.getDate());
-
-    exportGradeLabel.textContent = selectedGrade;
-    exportModalError.textContent = '';
-
-    exportModalOverlay.classList.add('active');
-    exportFromInput.focus();
-}
-
-function closeExportModal() {
-    exportModalOverlay.classList.remove('active');
-}
-
-async function confirmExport() {
-    const fromStr = exportFromInput.value;
-    const toStr   = exportToInput.value;
-
-    if (!fromStr || !toStr) {
-        exportModalError.textContent = 'Please choose both a start and end date.';
-        return;
-    }
-    if (fromStr > toStr) {  // ISO strings compare correctly
-        exportModalError.textContent = 'The "From" date must be on or before the "To" date.';
-        return;
-    }
-
-    exportModalConfirmBtn.disabled = true;
-    exportModalConfirmBtn.textContent = 'Exporting…';
-
-    const { data, error } = await supabaseClient
-        .from('test_slots')
-        .select('slot_date, teacher, class_name, class_block, learning_support')
-        .eq('grade', selectedGrade)
-        .gte('slot_date', fromStr)
-        .lte('slot_date', toStr)
-        .order('slot_date', { ascending: true })
-        .order('created_at', { ascending: true });
-
-    exportModalConfirmBtn.disabled = false;
-    exportModalConfirmBtn.textContent = 'Export';
-
-    if (error) {
-        exportModalError.textContent = error.message || 'Could not load data.';
-        return;
-    }
-
-    if (!data || data.length === 0) {
-        exportModalError.textContent = 'No tests scheduled in that range.';
-        return;
-    }
-
-    // Build the worksheet
-    const aoa = [
-        ['Date', 'Teacher', 'Subject / Class', 'Block', 'Learning Support']
-    ];
-
-    for (const row of data) {
-        const [y, m, d] = row.slot_date.split('-').map(Number);
-        const dateObj = new Date(y, m - 1, d);
-        const dateStr = dateObj.toLocaleDateString('en-GB', {
-            day: '2-digit', month: '2-digit', year: 'numeric'
-        });
-        aoa.push([
-            dateStr,
-            row.teacher,
-            row.class_name,
-            row.class_block || '',
-            row.learning_support ? 'Yes' : 'No'
-        ]);
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [
-        { wch: 12 }, { wch: 24 }, { wch: 28 }, { wch: 12 }, { wch: 18 }
-    ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `Grade ${selectedGrade}`);
-
-    // Filename uses the actual range the user chose
-    const filename = `TestSchedule_G${selectedGrade}_${fromStr}_to_${toStr}.xlsx`;
-    XLSX.writeFile(wb, filename);
-
-    closeExportModal();
-}
-
-// ---------- MONTH NAV ----------
-async function changeMonth(delta) {
-    const st = viewState[selectedGrade];
-    let m = st.month + delta;
-    let y = st.year;
-    if (m < 0)  { m = 11; y -= 1; }
-    if (m > 11) { m = 0;  y += 1; }
-    st.month = m;
-    st.year = y;
-
-    await refresh();
-}
-
-// ---------- EVENT LISTENERS ----------
-gradeSelect.addEventListener('change', async (e) => {
-    selectedGrade = Number(e.target.value);
-    await refresh();
-});
-
-prevMonthBtn.addEventListener('click', () => changeMonth(-1));
-nextMonthBtn.addEventListener('click', () => changeMonth(1));
-
-modalCancelBtn.addEventListener('click', closeModal);
-modalConfirmBtn.addEventListener('click', confirmBlock);
-
-modalOverlay.addEventListener('click', (e) => {
-    if (e.target === modalOverlay) closeModal();
-});
-modalOverlay.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); confirmBlock(); }
-    if (e.key === 'Escape') closeModal();
-});
-
-deleteModalCancelBtn.addEventListener('click', closeDeleteModal);
-deleteModalConfirmBtn.addEventListener('click', confirmDelete);
-
-deleteModalOverlay.addEventListener('click', (e) => {
-    if (e.target === deleteModalOverlay) closeDeleteModal();
-});
-deleteModalOverlay.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter')  { e.preventDefault(); confirmDelete(); }
-    if (e.key === 'Escape') closeDeleteModal();
-});
-
-exportBtn.addEventListener('click', openExportModal);
-exportModalCancelBtn.addEventListener('click', closeExportModal);
-exportModalConfirmBtn.addEventListener('click', confirmExport);
-
-exportModalOverlay.addEventListener('click', (e) => {
-    if (e.target === exportModalOverlay) closeExportModal();
-});
-exportModalOverlay.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter')  { e.preventDefault(); confirmExport(); }
-    if (e.key === 'Escape') closeExportModal();
-});
-
-// ---------- INIT ----------
-(async function init() {
-    await refresh();
-})();
