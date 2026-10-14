@@ -14,7 +14,7 @@ body {
 }
 
 .app {
-    max-width: 1300px;              /* widened to fit the hover panel */
+    max-width: 1300px;
     width: 100%;
     background: white;
     border-radius: 32px;
@@ -136,20 +136,26 @@ h1 {
 
 /* ---------- Calendar + hover panel layout ---------- */
 .calendar-container {
-    display: flex;
+    /* FIXED: use a strict 2-column grid instead of flex so the calendar
+       cannot overflow into the sidebar. minmax(0, 1fr) lets the calendar
+       shrink even when a day cell has long content. */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
     gap: 20px;
-    align-items: flex-start;
+    align-items: start;
 }
 
 .calendar-grid {
-    flex: 1 1 auto;
-    min-width: 0;                    /* allow shrink inside flex */
+    /* FIXED: repeat(7, minmax(0, 1fr)) makes all 7 columns equal width,
+       so "Sun" is no longer narrower than the rest. */
+    min-width: 0;
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 8px;
     background: #f0f4fa;
     padding: 16px;
     border-radius: 24px;
+    overflow: hidden;                /* FIXED: safety net against overflow */
 }
 
 .weekday {
@@ -160,6 +166,9 @@ h1 {
     letter-spacing: 0.02em;
     color: #527a9c;
     padding: 8px 0;
+    min-width: 0;                    /* FIXED: don't let short text shrink the track */
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 .day-cell {
@@ -167,6 +176,8 @@ h1 {
     border-radius: 16px;
     padding: 10px 6px 8px;
     min-height: 110px;
+    min-width: 0;                    /* FIXED: allow cell to shrink within its track */
+    overflow: hidden;                /* FIXED: long slot text can't burst the cell */
     display: flex;
     flex-direction: column;
     box-shadow: 0 2px 6px rgba(0,0,0,0.02);
@@ -218,7 +229,9 @@ h1 {
     flex-direction: column;
     gap: 4px;
     overflow-y: auto;
+    overflow-x: hidden;              /* FIXED: horizontal safety */
     flex: 1;
+    min-width: 0;                    /* FIXED: allows children to truncate */
 }
 
 .slot-item {
@@ -234,6 +247,7 @@ h1 {
     align-items: center;
     word-break: break-word;
     gap: 4px;
+    min-width: 0;                    /* FIXED: so .slot-text ellipsis works */
 }
 
 .slot-item .slot-text {
@@ -282,8 +296,9 @@ h1 {
 
 /* ---------- Hover panel ---------- */
 .hover-panel {
-    flex: 0 0 280px;
+    /* FIXED: min-width:0 so this sidebar can't push into the calendar track */
     width: 280px;
+    min-width: 0;
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 18px;
@@ -365,7 +380,7 @@ h1 {
     color: #16a34a;
 }
 
-/* ---------- Modal */ 
+/* ---------- Modal */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -464,8 +479,9 @@ h1 {
 
 .modal-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
 }
 
 .modal-actions button {
@@ -510,12 +526,6 @@ h1 {
     min-height: 20px;
 }
 
-.calendar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
 .btn-export {
     background: #16a34a;
     color: white;
@@ -531,14 +541,12 @@ h1 {
 .btn-export:hover  { background: #15803d; }
 .btn-export:active { background: #166534; }
 
-
 /* ---------- Responsive: stack panel below on small screens ---------- */
 @media (max-width: 900px) {
     .calendar-container {
-        flex-direction: column;
+        grid-template-columns: 1fr;    /* FIXED: single column when stacked */
     }
     .hover-panel {
-        flex: 1 1 auto;
         width: 100%;
         position: static;
         min-height: auto;
@@ -546,4 +554,83 @@ h1 {
     .hover-panel-placeholder {
         padding-top: 20px;
     }
+}
+
+/* =========================================================
+   NEW RULES — multi-block, LS-per-block, alter button
+   ========================================================= */
+
+/* Block + LS checkbox list inside the modal */
+.block-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 6px 0 14px;
+}
+.block-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+}
+.block-label,
+.ls-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+.ls-label {
+    color: #047857;
+    font-weight: 600;
+}
+.hint {
+    font-weight: normal;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+/* Alter (pencil) button in slot items */
+.alter-btn {
+    background: none;
+    border: none;
+    color: #2563eb;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0 2px;
+    margin-left: 2px;
+    line-height: 1;
+    flex-shrink: 0;                  /* FIXED: so it doesn't collapse */
+}
+.alter-btn:hover {
+    color: #1d4ed8;
+}
+
+/* Danger button (delete inside edit modal) */
+.btn-danger {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.btn-danger:hover {
+    background: #b91c1c;
+}
+.btn-danger:disabled {
+    background: #f87171;
+    cursor: not-allowed;
+}
+
+/* Layout tweak so the Delete button sits left of Cancel/Confirm */
+.modal-actions-right {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
 }
